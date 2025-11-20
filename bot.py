@@ -1,5 +1,6 @@
 from flask import Flask
 import os
+import asyncio
 import threading
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CommandHandler
@@ -9,7 +10,7 @@ from groq import Groq
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-# Создаем Flask app (обязательно для Render Web Service)
+# Создаем Flask app
 app = Flask(__name__)
 
 @app.route('/')
@@ -20,7 +21,7 @@ def home():
 def ping():
     return "pong"
 
-# Инициализируем Telegram бота
+# Инициализируем компоненты
 application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 client = Groq(api_key=GROQ_API_KEY)
 user_sessions = {}
@@ -41,7 +42,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         chat_completion = client.chat.completions.create(
             messages=user_sessions[user_id],
-            model="llama-3.1-70b-versatile",  # ← ТВОЯ НОВАЯ МОДЕЛЬ!
+            model="llama-3.1-70b-versatile",
         )
         ai_response = chat_completion.choices[0].message.content
         user_sessions[user_id].append({"role": "assistant", "content": ai_response})
@@ -58,17 +59,32 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 def run_bot():
-    """Запускает Telegram бота"""
-    application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    print("🤖 Telegram бот запущен с моделью Llama 3.1 70B...")
-    application.run_polling()
+    """Запускает Telegram бота в asyncio loop"""
+    async def main():
+        # Добавляем обработчики
+        application.add_handler(CommandHandler("start", start_command))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+        
+        print("🤖 Telegram бот запущен с моделью Llama 3.1 70B...")
+        await application.run_polling()
+    
+    # Создаем новый event loop для потока
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(main())
+    finally:
+        loop.close()
+
+def run_web():
+    """Запускает веб-сервер"""
+    print("🌐 Веб-сервер запускается на порту 5000...")
+    app.run(host='0.0.0.0', port=5000, debug=False)
 
 if __name__ == "__main__":
     # Запускаем бота в отдельном потоке
     bot_thread = threading.Thread(target=run_bot, daemon=True)
     bot_thread.start()
     
-    # Запускаем Flask в основном потоке (на порту 5000)
-    print("🌐 Веб-сервер запускается на порту 5000...")
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    # Запускаем веб-сервер в основном потоке
+    run_web()
