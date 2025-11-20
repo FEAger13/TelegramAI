@@ -40,7 +40,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         chat_completion = client.chat.completions.create(
             messages=user_sessions[user_id],
-            model="llama-3.1-8b-instant",
+            model="llama-3.1-70b-versatile",
         )
         ai_response = chat_completion.choices[0].message.content
         user_sessions[user_id].append({"role": "assistant", "content": ai_response})
