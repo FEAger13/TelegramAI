@@ -1,6 +1,5 @@
 from flask import Flask
 import os
-import asyncio
 import threading
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CommandHandler
@@ -58,33 +57,23 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Задавай любой вопрос - я постараюсь помочь!"
     )
 
-def run_bot():
-    """Запускает Telegram бота в asyncio loop"""
-    async def main():
-        # Добавляем обработчики
-        application.add_handler(CommandHandler("start", start_command))
-        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-        
-        print("🤖 Telegram бот запущен с моделью Llama 3.1 70B...")
-        await application.run_polling()
-    
-    # Создаем новый event loop для потока
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        loop.run_until_complete(main())
-    finally:
-        loop.close()
-
 def run_web():
-    """Запускает веб-сервер"""
+    """Запускает веб-сервер в отдельном потоке"""
     print("🌐 Веб-сервер запускается на порту 5000...")
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
+
+def run_bot():
+    """Запускает Telegram бота в основном потоке"""
+    application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    
+    print("🤖 Telegram бот запущен с моделью Llama 3.1 70B...")
+    application.run_polling()
 
 if __name__ == "__main__":
-    # Запускаем бота в отдельном потоке
-    bot_thread = threading.Thread(target=run_bot, daemon=True)
-    bot_thread.start()
+    # Запускаем веб-сервер в отдельном потоке
+    web_thread = threading.Thread(target=run_web, daemon=True)
+    web_thread.start()
     
-    # Запускаем веб-сервер в основном потоке
-    run_web()
+    # Запускаем бота в основном потоке
+    run_bot()
