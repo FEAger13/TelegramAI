@@ -1,7 +1,6 @@
+from flask import Flask
 import os
 import threading
-from flask import Flask
-from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CommandHandler
 from groq import Groq
 
@@ -9,14 +8,7 @@ from groq import Groq
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-# Инициализируем клиенты
-application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-client = Groq(api_key=GROQ_API_KEY)
-
-# Для хранения истории
-user_sessions = {}
-
-# Создаем Flask app
+# Создаем Flask app (обязательно для Render Web Service)
 app = Flask(__name__)
 
 @app.route('/')
@@ -26,6 +18,11 @@ def home():
 @app.route('/ping')
 def ping():
     return "pong"
+
+# Инициализируем Telegram бота
+application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+client = Groq(api_key=GROQ_API_KEY)
+user_sessions = {}
 
 # Обработчик сообщений Telegram
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -57,21 +54,17 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Привет! Я твой AI ассистент. Просто напиши мне сообщение!")
 
 def run_bot():
-    """Запускает Telegram бота в отдельном потоке"""
+    """Запускает Telegram бота"""
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    print("Бот запущен...")
+    print("🤖 Telegram бот запущен...")
     application.run_polling()
 
-def run_web():
-    """Запускает веб-сервер"""
-    app.run(host='0.0.0.0', port=5000, debug=False)
-
 if __name__ == "__main__":
-    # Запускаем бота в основном потоке, веб-сервер в отдельном
-    import threading
-    web_thread = threading.Thread(target=run_web, daemon=True)
-    web_thread.start()
+    # Запускаем бота в отдельном потоке
+    bot_thread = threading.Thread(target=run_bot, daemon=True)
+    bot_thread.start()
     
-    # Бота запускаем в основном потоке
-    run_bot()
+    # Запускаем Flask в основном потоке (на порту 5000)
+    print("🌐 Веб-сервер запускается на порту 5000...")
+    app.run(host='0.0.0.0', port=5000, debug=False)
