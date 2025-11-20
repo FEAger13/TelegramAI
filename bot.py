@@ -1,6 +1,7 @@
 from flask import Flask
 import os
 import threading
+from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CommandHandler
 from groq import Groq
 
@@ -31,7 +32,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if user_id not in user_sessions:
         user_sessions[user_id] = [
-            {"role": "system", "content": "Ты полезный AI ассистент."}
+            {"role": "system", "content": "Ты полезный AI ассистент. Отвечай подробно и помогай пользователю."}
         ]
 
     user_sessions[user_id].append({"role": "user", "content": user_message})
@@ -40,24 +41,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         chat_completion = client.chat.completions.create(
             messages=user_sessions[user_id],
-            model="llama-3.1-70b-versatile",
+            model="llama-3.1-70b-versatile",  # ← ТВОЯ НОВАЯ МОДЕЛЬ!
         )
         ai_response = chat_completion.choices[0].message.content
         user_sessions[user_id].append({"role": "assistant", "content": ai_response})
         await update.message.reply_text(ai_response)
     except Exception as e:
         print(f"Ошибка: {e}")
-        await update.message.reply_text("Извините, произошла ошибка.")
+        await update.message.reply_text("Извините, произошла ошибка. Попробуйте еще раз.")
 
 # Команда /start
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Я твой AI ассистент. Просто напиши мне сообщение!")
+    await update.message.reply_text(
+        "🤖 Привет! Я твой AI-ассистент на мощной модели Llama 3.1 70B!\n"
+        "Задавай любой вопрос - я постараюсь помочь!"
+    )
 
 def run_bot():
     """Запускает Telegram бота"""
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    print("🤖 Telegram бот запущен...")
+    print("🤖 Telegram бот запущен с моделью Llama 3.1 70B...")
     application.run_polling()
 
 if __name__ == "__main__":
